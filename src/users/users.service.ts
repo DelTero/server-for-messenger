@@ -5,7 +5,6 @@ import * as bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
 
-// Create a strongly typed `UserSelect` object with `satisfies`
 const findedUserSelect = {
   id: true,
   email: true,
@@ -13,7 +12,6 @@ const findedUserSelect = {
   name: true,
 } satisfies Prisma.UserSelect;
 
-// Infer the resulting payload type
 type FindedUser = Prisma.UserGetPayload<{
   select: typeof findedUserSelect;
 }>;

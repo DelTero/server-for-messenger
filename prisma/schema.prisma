@@ -16,13 +16,15 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String
-  name      String
-  isOnline  Boolean   @default(false)
-  lastSeen  DateTime  @default(now())
-  Message   Message[]
+  id                Int         @id @default(autoincrement())
+  email             String      @unique
+  password          String
+  name              String
+  isOnline          Boolean     @default(false)
+  lastSeen          DateTime    @default(now())
+  Message           Message[]
+  exercises         Exercise[] 
+  approaches        Approach[]
 }
 
 model ChatRoom {
@@ -41,4 +43,24 @@ model Message {
   room      ChatRoom  @relation(fields: [roomId], references: [id])
   user      User      @relation(fields: [userId], references: [id])
   createdAt DateTime  @default(now())
+}
+
+model Exercise {
+  id          String     @id @default(uuid())
+  name        String
+  userId      Int        
+  user        User       @relation(fields: [userId], references: [id])
+  approaches  Approach[]
+  createdAt   DateTime   @default(now())
+}
+
+model Approach {
+  id          String    @id @default(uuid())
+  reps        Int       
+  weight      Float     
+  exerciseId  String   
+  exercise    Exercise  @relation(fields: [exerciseId], references: [id])
+  userId      Int      
+  user        User      @relation(fields: [userId], references: [id])
+  date        DateTime  @default(now())
 }
