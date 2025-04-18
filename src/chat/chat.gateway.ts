@@ -104,7 +104,7 @@ export class ChatGateway {
     this.server.to(roomId).emit('onPrivateMessage', { message: savedMessage, fromUserId: data.fromUserId });
 
     // Отправляем уведомление получателю в его персональную комнату
-    this.server.to(`user_${data.toUserId}`).emit('newMessageNotification', {
+    this.server.to(data.toUserId).emit('newMessageNotification', {
       fromUserId: data.fromUserId,
       messagePreview: data.message.substring(0, 30) + (data.message.length > 30 ? '...' : ''),
       roomId: roomId,
