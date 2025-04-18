@@ -1,5 +1,6 @@
 import { WebSocketGateway, SubscribeMessage, MessageBody, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { VideoCallService } from '../videocall/videocall.service';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({
@@ -8,21 +9,43 @@ import { ChatService } from './chat.service';
   },
 })
 export class ChatGateway {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly videoCallService: VideoCallService,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
 
-  // @SubscribeMessage('joinRoom')
-  // async handleJoinRoom(@MessageBody() roomId: string, @ConnectedSocket() client: Socket) {
-  //   console.log('roomId:', roomId);
-  //   client.join(roomId);
-  //   // Получаем историю сообщений при входе в комнату
-  //   const messages = await this.chatService.getRoomMessages(roomId);
+  // =============== Общие методы ===============
 
-  //   // console.log('Messages:', messages);
-  //   return { event: 'joinRoom', data: { roomId, messages } };
-  // }
+  handleConnection(client: Socket) {
+    console.log(`Client connected: ${client.id}`);
+  }
+
+  handleDisconnect(client: Socket) {
+    console.log(`Client disconnected: ${client.id}`);
+
+    const userId = client.data.userId;
+    if (userId) {
+      console.log(`Пользователь ${userId} вышел из сети`);
+    }
+  }
+
+  @SubscribeMessage('userOnline')
+  handleUserOnline(@MessageBody() userId: string, @ConnectedSocket() client: Socket) {
+    // Присоединяем пользователя к его персональной комнате
+    const userRoom = userId;
+    client.join(userRoom);
+
+    // Сохраняем ID пользователя в данных сокета
+    client.data.userId = userId;
+
+    console.log(`Пользователь ${userId} онлайн`);
+    return { event: 'userOnline', data: { success: true } };
+  }
+
+  // =============== Функциональность чата ===============
 
   @SubscribeMessage('leaveRoom')
   handleLeaveRoom(@MessageBody() roomId: string, @ConnectedSocket() client: Socket) {
@@ -49,33 +72,6 @@ export class ChatGateway {
 
     return { event: 'newMessage', data: savedMessage };
   }
-
-  handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
-  }
-
-  handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
-
-    // Если у клиента был сохранен userId, выполняем дополнительные действия
-    if (client.data && client.data.userId) {
-      console.log(`Пользователь ${client.data.userId} вышел из сети`);
-    }
-  }
-
-  @SubscribeMessage('userOnline')
-  handleUserOnline(@MessageBody() userId: string, @ConnectedSocket() client: Socket) {
-    // Присоединяем пользователя к его персональной комнате
-    client.join(`user_${userId}`);
-
-    // Сохраняем ID пользователя в данных сокета
-    client.data.userId = userId;
-
-    console.log(`Пользователь ${userId} онлайн`);
-    return { event: 'userOnline', data: { success: true } };
-  }
-
-  // PRIVATE CHAT
 
   @SubscribeMessage('startPrivateChat')
   async handleStartPrivateChat(
@@ -116,5 +112,67 @@ export class ChatGateway {
     });
 
     return { event: 'privateMessage', data: savedMessage };
+  }
+
+  // =============== Функциональность видеозвонков ===============
+
+  // Инициация звонка
+  @SubscribeMessage('call-user')
+  async handleCallUser(
+    @MessageBody() data: { offer: RTCSessionDescriptionInit; to: string; from: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = await this.videoCallService.getUserById(data.from);
+    const callerName = user?.name || 'Неизвестный пользователь';
+
+    console.log(`Звонок от ${data.from} к ${data.to}`);
+
+    this.server.to(data.to).emit('incoming-call', {
+      offer: data.offer,
+      from: data.from,
+      fromName: callerName,
+    });
+  }
+
+  // Принятие звонка
+  @SubscribeMessage('call-accept')
+  handleCallAccepted(
+    @MessageBody() data: { answer: RTCSessionDescriptionInit; to: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log(`Звонок принят, отправка ответа к ${data.to}`);
+
+    this.server.to(data.to).emit('call-accepted', {
+      answer: data.answer,
+    });
+  }
+
+  // Передача ICE кандидатов
+  @SubscribeMessage('ice-candidate')
+  handleIceCandidate(
+    @MessageBody() data: { candidate: RTCIceCandidateInit; to: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log(`ICE кандидат для ${data.to}`);
+
+    this.server.to(data.to).emit('ice-candidate', {
+      candidate: data.candidate,
+    });
+  }
+
+  // Завершение звонка
+  @SubscribeMessage('end-call')
+  handleEndCall(@MessageBody() data: { to: string }, @ConnectedSocket() client: Socket) {
+    console.log(`Завершение звонка для ${data.to}`);
+
+    this.server.to(data.to).emit('call-ended');
+  }
+
+  // Отклонение звонка
+  @SubscribeMessage('decline-call')
+  handleDeclineCall(@MessageBody() data: { to: string }, @ConnectedSocket() client: Socket) {
+    console.log(`Отклонение звонка для ${data.to}`);
+
+    this.server.to(data.to).emit('call-declined');
   }
 }
