@@ -1,6 +1,5 @@
 import { WebSocketGateway, SubscribeMessage, MessageBody, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { VideoCallService } from '../videocall/videocall.service';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({
@@ -9,10 +8,7 @@ import { ChatService } from './chat.service';
   },
 })
 export class ChatGateway {
-  constructor(
-    private readonly chatService: ChatService,
-    private readonly videoCallService: VideoCallService,
-  ) {}
+  constructor(private readonly chatService: ChatService) {}
 
   @WebSocketServer()
   server!: Server;
@@ -60,7 +56,7 @@ export class ChatGateway {
   ) {
     const messageData = {
       content: data.message,
-      userId: parseInt(data.userId),
+      userId: data.userId,
       roomId: data.roomId,
     };
 
@@ -94,7 +90,7 @@ export class ChatGateway {
 
     const messageData = {
       content: data.message,
-      userId: parseInt(data.fromUserId),
+      userId: data.fromUserId,
       roomId: roomId,
     };
 
@@ -122,7 +118,7 @@ export class ChatGateway {
     @MessageBody() data: { offer: RTCSessionDescriptionInit; to: string; from: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const user = await this.videoCallService.getUserById(data.from);
+    const user = await this.chatService.getUserById(data.from);
     const callerName = user?.name || 'Неизвестный пользователь';
 
     console.log(`Звонок от ${data.from} к ${data.to}`);

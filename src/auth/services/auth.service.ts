@@ -6,10 +6,11 @@ import { SignInDto } from '../dto/signin.dto';
 import { SignUpDto } from '../dto/signup.dto';
 import { CookieService } from './cookie.service';
 import { Response } from 'express';
-import { TOKEN_CONFIG } from 'src/config/tokens.config';
 import { TokenPayload } from '../interfaces/tokenPayload.interface';
 import { SignInResponseDto } from '../dto/sign-in-response.dto';
 import { SignUpResponseDto } from '../dto/sign-up-response.dto';
+import { ConfigService } from '@nestjs/config';
+import { TOKEN_CONFIG } from 'src/config/tokens.config';
 
 @Injectable()
 export class AuthService {
@@ -17,7 +18,16 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private cookieService: CookieService,
+    private configService: ConfigService,
   ) {}
+
+  private getTokenConfig() {
+    return {
+      accessToken: this.configService.get('JWT_ACCESS_SECRET'),
+      refreshToken: this.configService.get('JWT_REFRESH_SECRET'),
+    };
+  }
+
   async signIn(bodyData: SignInDto, response: Response): Promise<SignInResponseDto> {
     const { email, password } = bodyData;
     const user = await this.usersService.findByEmail(email);
@@ -55,11 +65,11 @@ export class AuthService {
     try {
       const [accessToken, refreshToken] = await Promise.all([
         this.jwtService.signAsync(payload, {
-          secret: TOKEN_CONFIG.ACCESS_TOKEN.SECRET,
+          secret: this.getTokenConfig().accessToken,
           expiresIn: TOKEN_CONFIG.ACCESS_TOKEN.EXPIRES_IN,
         }),
         this.jwtService.signAsync(payload, {
-          secret: TOKEN_CONFIG.REFRESH_TOKEN.SECRET,
+          secret: this.getTokenConfig().refreshToken,
           expiresIn: TOKEN_CONFIG.REFRESH_TOKEN.EXPIRES_IN,
         }),
       ]);
@@ -75,7 +85,7 @@ export class AuthService {
 
     try {
       const accessToken = await this.jwtService.signAsync(payloadData, {
-        secret: TOKEN_CONFIG.ACCESS_TOKEN.SECRET,
+        secret: this.getTokenConfig().accessToken,
         expiresIn: TOKEN_CONFIG.ACCESS_TOKEN.EXPIRES_IN,
       });
 
@@ -92,7 +102,7 @@ export class AuthService {
 
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: TOKEN_CONFIG.ACCESS_TOKEN.SECRET,
+        secret: this.getTokenConfig().accessToken,
       });
       return payload;
     } catch (error: any) {
@@ -113,7 +123,7 @@ export class AuthService {
 
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: TOKEN_CONFIG.REFRESH_TOKEN.SECRET,
+        secret: this.getTokenConfig().refreshToken,
       });
       return payload;
     } catch (error: any) {

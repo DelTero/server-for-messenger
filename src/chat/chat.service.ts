@@ -1,107 +1,98 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
-
-const findedUserSelect = {
-  id: true,
-  name: true,
-} satisfies Prisma.UserSelect;
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityRepository } from '@mikro-orm/core';
+import { ChatRoom } from './entities/chat-room.entity';
+import { Message } from './entities/message.entity';
+import { User } from '../users/entities/user.entity';
+import { MessageData } from './interfaces/messageData.interface';
+import { ChatMessageView } from './interfaces/chatMessageView.interface';
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(ChatRoom)
+    private readonly roomRepo: EntityRepository<ChatRoom>,
+    @InjectRepository(Message)
+    private readonly messageRepo: EntityRepository<Message>,
+    @InjectRepository(User)
+    private readonly userRepo: EntityRepository<User>,
+  ) {}
 
-  async getAllRooms() {
-    return this.prisma.chatRoom.findMany({
-      include: {
-        messages: true,
-      },
-    });
-  }
+  async getUserById(userId: string): Promise<User> {
+    const user = await this.userRepo.findOne({ id: userId });
 
-  async getRoomById(id: string) {
-    return this.prisma.chatRoom.findUnique({
-      where: { id },
-      include: {
-        messages: {
-          include: {
-            user: {
-              select: findedUserSelect,
-            },
-          },
-        },
-      },
-    });
-  }
-
-  async createRoom(data: { name: string }) {
-    return this.prisma.chatRoom.create({
-      data: {
-        name: data.name,
-      },
-    });
-  }
-
-  async getRoomMessages(roomId: string) {
-    return this.prisma.message.findMany({
-      where: { roomId },
-      include: {
-        user: {
-          select: findedUserSelect,
-        },
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-  }
-
-  async sendMessage(roomId: string, data: { content: string; userId: number }) {
-    console.log('Sending message:', data, roomId);
-    return this.prisma.message.create({
-      data: {
-        content: data.content,
-        userId: data.userId,
-        roomId: roomId,
-      },
-      include: {
-        user: {
-          select: findedUserSelect,
-        },
-      },
-    });
-  }
-
-  async deleteMessage(roomId: string, messageId: string) {
-    return this.prisma.message.delete({
-      where: {
-        id: messageId,
-        roomId: roomId,
-      },
-    });
-  }
-
-  async getOrCreatePrivateRoom(user1Id: string, user2Id: string) {
-    // Создаем уникальный ID комнаты, сортируя ID пользователей
-    const roomId = [user1Id, user2Id].sort().join('_private_');
-
-    const existingRoom = await this.prisma.chatRoom.findUnique({
-      where: { id: roomId },
-    });
-
-    if (existingRoom) {
-      return roomId;
+    if (!user) {
+      throw new NotFoundException('Пользователь с таким id не найден');
     }
 
-    // Если комната не существует, создаем новую
-    await this.prisma.chatRoom.create({
-      data: {
+    return user;
+  }
+
+  async sendMessage(roomId: string, data: MessageData): Promise<ChatMessageView> {
+    const room = await this.roomRepo.findOneOrFail({ id: roomId });
+    const user = await this.getUserById(data.userId);
+
+    const message = this.messageRepo.create({
+      content: data.content,
+      user,
+      room,
+      createdAt: new Date(),
+    });
+
+    await this.messageRepo.getEntityManager().persistAndFlush(message);
+
+    return {
+      id: message.id,
+      content: message.content,
+      userId: user.id,
+      roomId: room.id,
+      createdAt: message.createdAt,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    };
+  }
+
+  async getRoomMessages(roomId: string): Promise<ChatMessageView[]> {
+    const messages = await this.messageRepo.find(
+      { room: { id: roomId } },
+      {
+        populate: ['user', 'room'],
+        orderBy: { createdAt: 'ASC' },
+      },
+    );
+
+    return messages.map((msg) => ({
+      id: msg.id,
+      content: msg.content,
+      userId: msg.user.id,
+      roomId: msg.room.id,
+      createdAt: msg.createdAt,
+      user: {
+        id: msg.user.id,
+        name: msg.user.name,
+        email: msg.user.email,
+      },
+    }));
+  }
+
+  async getOrCreatePrivateRoom(user1Id: string, user2Id: string): Promise<string> {
+    const roomId = [user1Id, user2Id].sort().join('_private_');
+
+    let room = await this.roomRepo.findOne({ id: roomId });
+
+    if (!room) {
+      room = this.roomRepo.create({
         id: roomId,
         name: `Private_${roomId}`,
         isPrivate: true,
-      },
-    });
+        createdAt: new Date(),
+      });
+      await this.roomRepo.getEntityManager().persistAndFlush(room);
+    }
 
-    return roomId;
+    return room.id;
   }
 }

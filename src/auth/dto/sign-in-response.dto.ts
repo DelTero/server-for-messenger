@@ -5,5 +5,5 @@ export class SignInResponseDto {
   message!: string;
 
   @ApiProperty({ example: { id: 1, email: 'test@mail.ru', name: 'User' } })
-  user!: { id: number; email: string; name: string };
+  user!: { id: string; email: string; name: string };
 }
