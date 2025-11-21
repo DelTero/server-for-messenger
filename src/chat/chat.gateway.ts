@@ -115,7 +115,7 @@ export class ChatGateway {
   // Инициация звонка
   @SubscribeMessage('call-user')
   async handleCallUser(
-    @MessageBody() data: { offer: RTCSessionDescriptionInit; to: string; from: string },
+    @MessageBody() data: { offer: RTCSessionDescriptionInit; to: string; from: string; mode: 'video' | 'audio' },
     @ConnectedSocket() client: Socket,
   ) {
     const user = await this.chatService.getUserById(data.from);
@@ -127,6 +127,7 @@ export class ChatGateway {
       offer: data.offer,
       from: data.from,
       fromName: callerName,
+      mode: data.mode,
     });
   }
 
