@@ -15,8 +15,8 @@ export class UsersService {
     private readonly userRepo: EntityRepository<User>,
   ) {}
 
-  async findAll(): Promise<CreatedUser[]> {
-    return this.userRepo.findAll({ fields: createdUserFields });
+  async findAllExcept(userId: string): Promise<CreatedUser[]> {
+    return this.userRepo.find({ id: { $ne: userId } }, { fields: createdUserFields });
   }
 
   async findByEmail(email: string): Promise<FindedUser> {
