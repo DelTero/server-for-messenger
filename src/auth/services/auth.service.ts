@@ -23,8 +23,8 @@ export class AuthService {
 
   private getTokenConfig() {
     return {
-      accessToken: this.configService.get('JWT_ACCESS_SECRET'),
-      refreshToken: this.configService.get('JWT_REFRESH_SECRET'),
+      accessToken: this.configService.get<string>('JWT_ACCESS_SECRET') || '',
+      refreshToken: this.configService.get<string>('JWT_REFRESH_SECRET') || '',
     };
   }
 

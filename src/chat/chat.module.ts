@@ -5,10 +5,13 @@ import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { ChatRoom } from './entities/chat-room.entity';
 import { Message } from './entities/message.entity';
 import { User } from 'src/users/entities/user.entity';
+import { VoipController } from './voip.controller';
+import { VoipService } from './voip.service';
 
 @Module({
   imports: [MikroOrmModule.forFeature([ChatRoom, Message, User])],
-  providers: [ChatGateway, ChatService],
+  controllers: [VoipController],
+  providers: [ChatGateway, ChatService, VoipService],
   exports: [ChatService],
 })
 export class ChatModule {}
