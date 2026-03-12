@@ -1,0 +1,36 @@
+services:
+  server:
+    image: node:24.14.0-bookworm-slim
+    working_dir: /usr/src/app
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+    command: sh -c "npm install && npm run start:dev"
+    volumes:
+      - ./:/usr/src/app
+      - server-node-modules:/usr/src/app/node_modules
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
+  server-node-modules:

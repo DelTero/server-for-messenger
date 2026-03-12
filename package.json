@@ -22,7 +22,18 @@
     "mikro:migration:create": "mikro-orm migration:create",
     "mikro:migration:up": "mikro-orm migration:up",
     "mikro:migration:down": "mikro-orm migration:down",
-    "mikro:debug": "mikro-orm debug"
+    "mikro:debug": "mikro-orm debug",
+    "docker:migration:up": "docker compose exec server npm run mikro:migration:up",
+    "docker:migration:down": "docker compose exec server npm run mikro:migration:down",
+    "docker:migration:create": "docker compose exec server npm run mikro:migration:create",
+    "docker:up": "docker compose up",
+    "docker:up:build": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:down:volumes": "docker compose down -v",
+    "docker:logs": "docker compose logs -f server",
+    "docker:ps": "docker compose ps",
+    "docker:prod:build": "docker build -t server-for-messenger .",
+    "docker:prod:run": "docker run -p 3000:3000 --env-file .env server-for-messenger"
   },
   "dependencies": {
     "@mikro-orm/core": "^6.5.9",
