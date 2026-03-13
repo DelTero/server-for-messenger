@@ -1,5 +1,6 @@
 import { WebSocketGateway, SubscribeMessage, MessageBody, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({
@@ -8,7 +9,10 @@ import { ChatService } from './chat.service';
   },
 })
 export class ChatGateway {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
@@ -99,12 +103,14 @@ export class ChatGateway {
     // Отправляем сообщение участникам приватного чата
     this.server.to(roomId).emit('onPrivateMessage', { message: savedMessage, fromUserId: data.fromUserId });
 
-    // Отправляем уведомление получателю в его персональную комнату
-    this.server.to(data.toUserId).emit('newMessageNotification', {
+    const sender = await this.chatService.getUserById(data.fromUserId);
+
+    this.eventEmitter.emit('notification.new_message', {
+      recipientId: data.toUserId,
       fromUserId: data.fromUserId,
+      fromUserName: sender.name,
       messagePreview: data.message.substring(0, 30) + (data.message.length > 30 ? '...' : ''),
-      roomId: roomId,
-      timestamp: new Date(),
+      roomId,
     });
 
     return { event: 'privateMessage', data: savedMessage };
