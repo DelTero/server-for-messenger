@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
@@ -9,7 +10,7 @@ import { VoipController } from './voip.controller';
 import { VoipService } from './voip.service';
 
 @Module({
-  imports: [MikroOrmModule.forFeature([ChatRoom, Message, User])],
+  imports: [MikroOrmModule.forFeature([ChatRoom, Message, User]), HttpModule],
   controllers: [VoipController],
   providers: [ChatGateway, ChatService, VoipService],
   exports: [ChatService],

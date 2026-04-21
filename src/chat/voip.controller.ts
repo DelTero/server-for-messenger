@@ -9,8 +9,6 @@ export class VoipController {
   @Get('ice-servers')
   async getIceServers() {
     const iceServers = await this.voipService.getIceServers();
-
-    console.log('iceServers controller', iceServers);
     return { iceServers };
   }
 }
